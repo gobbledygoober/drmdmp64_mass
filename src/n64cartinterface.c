@@ -172,6 +172,85 @@ void cartio_init()
     gpio_set_dir(N64_CIC_DIO, false);
     gpio_set_pulls(N64_CIC_DIO, true, false);
 
+    // Do cart test and get cart data. Start with the CIC hello protocol.
+    uint8_t CICHello = 0;
+    for (uint32_t x = 0; x < 100; x += 1) {
+        gpio_put(N64_CIC_DCLK, false);
+        sleep_us(10);
+        CICHello |= (uint8_t)(((gpio_get(N64_CIC_DIO) == false) ? 0 : 1) << (3 - x));
+        sleep_us(16);
+        gpio_put(N64_CIC_DCLK, true);
+        sleep_us(20);
+    }
+
+    if (CICHello == 0x5) {
+        gCICType = CIC_TYPE_PAL;
+    } else if (CICHello == 0x1) {
+        gCICType = CIC_TYPE_NTSC;
+    } else {
+        gCICType = CIC_TYPE_INVALID;
+    }
+
+    // Read the 0x1000 bytes to determine Rom name, Cart Id, Region and CIC hash.
+    set_address(CART_ADDRESS_START + 0x20);
+    for (uint i = 0; i < (sizeof(gGameTitle) / 2); i += 1) {
+        gGameTitle[i] = flip16(read16());
+    }
+
+    set_address(CART_ADDRESS_START + 0x3A);
+    for (uint i = 0; i < (sizeof(gGameCode) / 2); i += 1) {
+        gGameCode[i] = read16();
+    }
+
+    uint16_t buffer[0xFC0 / 2];
+    for (uint i = 0; i < (0xFC0 / 2); i += 1) {
+        set_address(CART_ADDRESS_START + 0x40 + (i * 2));
+        buffer[i] = read16();
+    }
+
+    uint32_t crc = si_crc32((uint8_t*)buffer, sizeof(buffer));
+    switch (crc) {
+    case CRC_NUS_6101:
+        gCICName = "6101";
+    break;
+    case CRC_iQue_1:
+        gCICName = "iQue 1";
+    break;
+    case CRC_iQue_2:
+        gCICName = "iQue 2";
+    break;
+    case CRC_iQue_3:
+        gCICName = "iQue 3";
+    break;
+
+    case CRC_NUS_6102:
+        gCICName = "6102";
+    break;
+
+    case CRC_NUS_6103:
+        gCICName = "6103";
+    break;
+
+    case CRC_NUS_6105:
+        gCICName = "6105";
+    break;
+
+    case CRC_NUS_6106:
+        gCICName = "6105";
+    break;
+
+    case CRC_NUS_8303:
+        gCICName = "8303";
+    break;
+
+    case CRC_NUS_7101:
+        gCICName = "7101";
+    break;
+
+    default:
+        gCICName = "Unknown";
+    }
+
     // Read start address, assert that the retured value is something valid.
     set_address(CART_ADDRESS_START);
     uint32_t read = (((uint32_t)read16()) << 16) | (read16());
@@ -277,84 +356,6 @@ void cartio_init()
     uint8_t Buffer[512];
     ReadEepromData(0, Buffer);
 
-    // Do cart test and get cart data. Start with the CIC hello protocol.
-    uint8_t CICHello = 0;
-    for (uint32_t x = 0; x < 4; x += 1) {
-        gpio_put(N64_CIC_DCLK, false);
-        sleep_us(10);
-        CICHello |= (uint8_t)(((gpio_get(N64_CIC_DIO) == false) ? 0 : 1) << (3 - x));
-        sleep_us(16);
-        gpio_put(N64_CIC_DCLK, true);
-        sleep_us(20);
-    }
-
-    if (CICHello == 0x5) {
-        gCICType = CIC_TYPE_PAL;
-    } else if (CICHello == 0x1) {
-        gCICType = CIC_TYPE_NTSC;
-    } else {
-        gCICType = CIC_TYPE_INVALID;
-    }
-
-    // Read the 0x1000 bytes to determine Rom name, Cart Id, Region and CIC hash.
-    set_address(CART_ADDRESS_START + 0x20);
-    for (uint i = 0; i < (sizeof(gGameTitle) / 2); i += 1) {
-        gGameTitle[i] = flip16(read16());
-    }
-
-    set_address(CART_ADDRESS_START + 0x3A);
-    for (uint i = 0; i < (sizeof(gGameCode) / 2); i += 1) {
-        gGameCode[i] = read16();
-    }
-
-    uint16_t buffer[0xFC0 / 2];
-    for (uint i = 0; i < (0xFC0 / 2); i += 1) {
-        set_address(CART_ADDRESS_START + 0x40 + (i * 2));
-        buffer[i] = read16();
-    }
-
-    uint32_t crc = si_crc32((uint8_t*)buffer, sizeof(buffer));
-    switch (crc) {
-    case CRC_NUS_6101:
-        gCICName = "6101";
-    break;
-    case CRC_iQue_1:
-        gCICName = "iQue 1";
-    break;
-    case CRC_iQue_2:
-        gCICName = "iQue 2";
-    break;
-    case CRC_iQue_3:
-        gCICName = "iQue 3";
-    break;
-
-    case CRC_NUS_6102:
-        gCICName = "6102";
-    break;
-
-    case CRC_NUS_6103:
-        gCICName = "6103";
-    break;
-
-    case CRC_NUS_6105:
-        gCICName = "6105";
-    break;
-
-    case CRC_NUS_6106:
-        gCICName = "6105";
-    break;
-
-    case CRC_NUS_8303:
-        gCICName = "8303";
-    break;
-
-    case CRC_NUS_7101:
-        gCICName = "7101";
-    break;
-
-    default:
-        gCICName = "Unknown";
-    }
 
 }
 

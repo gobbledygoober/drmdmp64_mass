@@ -191,6 +191,8 @@ void cartio_init()
         gCICType = CIC_TYPE_INVALID;
     }
 
+    assert(read == 0x80371240);
+
     // Read the 0x1000 bytes to determine Rom name, Cart Id, Region and CIC hash.
     set_address(CART_ADDRESS_START + 0x20);
     for (uint i = 0; i < (sizeof(gGameTitle) / 2); i += 1) {
@@ -265,8 +267,6 @@ void cartio_init()
         set_address(CART_ADDRESS_START);
         read = (((uint32_t)read16()) << 16) | (read16());
     }
-
-    assert(read == 0x80371240);
 
     // Hang is coudn't header.
     while(read != 0x80371240) {

@@ -193,6 +193,27 @@ void cartio_init()
 
     assert(read == 0x80371240);
 
+    sleep_ms(1000);
+    
+    // Do cart test and get cart data. Start with the CIC hello protocol.
+    uint8_t CICHello = 0;
+    for (uint32_t x = 0; x < 100; x += 1) {
+        gpio_put(N64_CIC_DCLK, false);
+        sleep_us(10);
+        CICHello |= (uint8_t)(((gpio_get(N64_CIC_DIO) == false) ? 0 : 1) << (3 - x));
+        sleep_us(16);
+        gpio_put(N64_CIC_DCLK, true);
+        sleep_us(20);
+    }
+
+    if (CICHello == 0x5) {
+        gCICType = CIC_TYPE_PAL;
+    } else if (CICHello == 0x1) {
+        gCICType = CIC_TYPE_NTSC;
+    } else {
+        gCICType = CIC_TYPE_INVALID;
+    }
+
     // Read the 0x1000 bytes to determine Rom name, Cart Id, Region and CIC hash.
     set_address(CART_ADDRESS_START + 0x20);
     for (uint i = 0; i < (sizeof(gGameTitle) / 2); i += 1) {
